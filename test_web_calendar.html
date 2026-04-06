@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>우리 가족 달력</title>
+  <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap');
+    
+    :root {
+      --primary: #4F46E5;
+      --bg: #F9FAFB;
+      --surface: #FFFFFF;
+      --dad: #3B82F6;
+      --mom: #EC4899;
+      --kid1: #10B981;
+      --kid2: #F59E0B;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', sans-serif; }
+
+    body { background-color: var(--bg); display: flex; justify-content: center; height: 100vh; }
+    
+    #app {
+      width: 100%; max-width: 400px;
+      background: var(--surface);
+      height: 100%; display: flex; flex-direction: column;
+      position: relative; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+
+    header {
+      padding: 20px; background: var(--primary); color: white;
+      text-align: center; font-size: 18px; font-weight: 700;
+    }
+
+    .calendar { padding: 20px; }
+    .month-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-weight: bold; font-size: 18px; }
+    .month-nav button { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--primary); }
+    
+    .days-header { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 12px; color: #6B7280; margin-bottom: 10px; }
+    .days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+    
+    .day {
+      aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+      border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; padding-top: 8px; position: relative;
+    }
+    .day:hover { background: #F3F4F6; }
+    .day.selected { background: var(--primary); color: white; }
+    
+    .dots { display: flex; gap: 2px; margin-top: 4px; justify-content: center; height: 6px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+    .event-list-container { flex: 1; background: #F3F4F6; padding: 20px; overflow-y: auto; border-top: 1px solid #E5E7EB; }
+    .event-list { display: flex; flex-direction: column; gap: 10px; }
+    
+    .event-card {
+      background: white; padding: 15px; border-radius: 12px;
+      display: flex; align-items: center; gap: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .avatar {
+      width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; flex-shrink: 0;
+    }
+    .event-info { flex: 1; }
+    .event-title { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+    .event-member { font-size: 12px; color: #6B7280; }
+    .delete-btn { color: #9CA3AF; background: none; border: none; cursor: pointer; font-size: 20px; padding: 0 5px;}
+
+    .fab {
+      position: absolute; bottom: 30px; right: 20px;
+      background: var(--primary); color: white; width: 60px; height: 60px;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 28px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.2); border: none;
+    }
+
+    .modal-overlay {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 10;
+    }
+    .modal {
+      background: white; padding: 20px; border-radius: 16px; width: 90%; max-width: 320px;
+    }
+    .modal h3 { margin-bottom: 20px; font-size: 18px; }
+    .input-group { margin-bottom: 15px; }
+    .input-group label { display: block; font-size: 12px; color: #6B7280; margin-bottom: 5px; }
+    .input-group input, .input-group select {
+      width: 100%; padding: 10px; border: 1px solid #D1D5DB; border-radius: 8px; font-size: 14px;
+    }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    .modal-actions button { padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .btn-cancel { background: #F3F4F6; border: none; color: #4B5563; }
+    .btn-save { background: var(--primary); border: none; color: white; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>👨‍👩‍👧‍👦 우리 가족 달력</header>
+    
+    <div class="calendar">
+      <div class="month-nav">
+        <button id="prevBtn">&lt;</button>
+        <span id="currentMonthYear"></span>
+        <button id="nextBtn">&gt;</button>
+      </div>
+      <div class="days-header">
+        <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+      </div>
+      <div class="days-grid" id="daysGrid"></div>
+    </div>
+
+    <div class="event-list-container">
+      <div id="noEvents" style="text-align: center; color: #6B7280; display: none; margin-top: 20px;">일정이 없습니다.</div>
+      <div class="event-list" id="eventList"></div>
+    </div>
+
+    <button class="fab" id="fabBtn">+</button>
+
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal">
+        <h3 id="modalTitle">일정 추가</h3>
+        <div class="input-group">
+          <label>어떤 일정인가요?</label>
+          <input type="text" id="eventTitleInput" placeholder="예: 첫째 생일파티">
+        </div>
+        <div class="input-group">
+          <label>누구의 일정인가요?</label>
+          <select id="eventMemberInput">
+            <option value="dad">아빠</option>
+            <option value="mom">엄마</option>
+            <option value="kid1">첫째</option>
+            <option value="kid2">둘째</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-cancel" id="cancelBtn">취소</button>
+          <button class="btn-save" id="saveBtn">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const members = {
+      dad: { name: '아빠', id: 'dad', color: 'var(--dad)' },
+      mom: { name: '엄마', id: 'mom', color: 'var(--mom)' },
+      kid1: { name: '첫째', id: 'kid1', color: 'var(--kid1)' },
+      kid2: { name: '둘째', id: 'kid2', color: 'var(--kid2)' }
+    };
+
+    const holidays = {
+      '01-01': '신정',
+      '03-01': '3·1절',
+      '05-05': '어린이날',
+      '06-06': '현충일',
+      '08-15': '광복절',
+      '10-03': '개천절',
+      '10-09': '한글날',
+      '12-25': '성탄절',
+      // 2026년 기준 음력/대체 공휴일 하드코딩
+      '2026-02-16': '설연휴', '2026-02-17': '설날', '2026-02-18': '설연휴',
+      '2026-03-02': '대체공휴일',
+      '2026-05-24': '부처님오신날', '2026-05-25': '대체공휴일',
+      '2026-09-24': '추석연휴', '2026-09-25': '추석', '2026-09-26': '추석연휴'
+    };
+
+    function getHolidayName(date) {
+      const mmdd = String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+      const yyyymmdd = date.getFullYear() + '-' + mmdd;
+      return holidays[yyyymmdd] || holidays[mmdd] || null;
+    }
+
+    let events = [
+      { id: Date.now()-2000, dateString: formatDateString(new Date()), title: '저녁 외식', memberId: 'dad' }
+    ]; 
+    let currentDate = new Date();
+    let selectedDate = new Date();
+
+    const daysGrid = document.getElementById('daysGrid');
+    const currentMonthYear = document.getElementById('currentMonthYear');
+    const eventList = document.getElementById('eventList');
+    const noEvents = document.getElementById('noEvents');
+    
+    function formatDateString(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    function renderCalendar() {
+      daysGrid.innerHTML = '';
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      currentMonthYear.textContent = `${year}년 ${month + 1}월`;
+
+      const firstDayOfMonth = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      for (let i = 0; i < firstDayOfMonth; i++) {
+        daysGrid.appendChild(document.createElement('div'));
+      }
+
+      const selectedDateStr = formatDateString(selectedDate);
+
+      for (let date = 1; date <= daysInMonth; date++) {
+        const dayDiv = document.createElement('div');
+        dayDiv.className = 'day';
+        const currentDateObj = new Date(year, month, date);
+        const dStr = formatDateString(currentDateObj);
+        
+        if (dStr === selectedDateStr) {
+          dayDiv.classList.add('selected');
+        }
+
+        const holiday = getHolidayName(currentDateObj);
+        const isSunday = currentDateObj.getDay() === 0;
+        
+        // 음력 계산
+        let lunarStr = '';
+        try {
+          const lunarDate = Lunar.fromDate(currentDateObj);
+          lunarStr = lunarDate.getMonth() + '.' + lunarDate.getDay();
+        } catch(e) {}
+        
+        const lunarSpan = document.createElement('div');
+        lunarSpan.textContent = lunarStr;
+        lunarSpan.style.position = 'absolute';
+        lunarSpan.style.top = '4px';
+        lunarSpan.style.right = '4px';
+        lunarSpan.style.fontSize = '8px';
+        lunarSpan.style.color = dayDiv.classList.contains('selected') ? '#E0E7FF' : '#9CA3AF';
+        dayDiv.appendChild(lunarSpan);
+
+        const dateNumSpan = document.createElement('span');
+        dateNumSpan.textContent = date;
+        
+        // 일요일이거나 공휴일이면 빨간색
+        if (isSunday || holiday) {
+          dateNumSpan.style.color = dayDiv.classList.contains('selected') ? 'white' : '#EF4444';
+        }
+        dayDiv.appendChild(dateNumSpan);
+        
+        if (holiday) {
+          const holidaySpan = document.createElement('span');
+          holidaySpan.textContent = holiday;
+          holidaySpan.style.fontSize = '8px';
+          holidaySpan.style.color = dayDiv.classList.contains('selected') ? '#FECACA' : '#EF4444';
+          holidaySpan.style.marginTop = '-2px';
+          // 공휴일 이름이 너무 길면 줄임
+          holidaySpan.style.whiteSpace = 'nowrap';
+          holidaySpan.style.overflow = 'hidden';
+          holidaySpan.style.textOverflow = 'ellipsis';
+          holidaySpan.style.width = '100%';
+          holidaySpan.style.textAlign = 'center';
+          dayDiv.appendChild(holidaySpan);
+        }
+
+        const dayEvents = events.filter(e => e.dateString === dStr);
+        if (dayEvents.length > 0) {
+          const dotsContainer = document.createElement('div');
+          dotsContainer.className = 'dots';
+          dotsContainer.style.position = 'absolute';
+          dotsContainer.style.bottom = '4px';
+          
+          dayEvents.slice(0, 4).forEach(e => {
+            const dot = document.createElement('div');
+            dot.className = 'dot';
+            dot.style.backgroundColor = members[e.memberId].color;
+            if (dayDiv.classList.contains('selected')) {
+               dot.style.border = '1px solid white';
+            }
+            dotsContainer.appendChild(dot);
+          });
+          dayDiv.appendChild(dotsContainer);
+        }
+
+        dayDiv.onclick = () => {
+          selectedDate = new Date(year, month, date);
+          renderCalendar();
+          renderEvents();
+        };
+        daysGrid.appendChild(dayDiv);
+      }
+    }
+
+    function renderEvents() {
+      eventList.innerHTML = '';
+      const selectedDateStr = formatDateString(selectedDate);
+      const dayEvents = events.filter(e => e.dateString === selectedDateStr);
+
+      const holiday = getHolidayName(selectedDate);
+      
+      if (dayEvents.length === 0) {
+        noEvents.style.display = 'block';
+        if (holiday) {
+          noEvents.innerHTML = `이 날은 <b><span style="color:#EF4444">${holiday}</span></b> 입니다.<br>등록된 일정이 없습니다.`;
+        } else {
+          noEvents.textContent = '일정이 없습니다.';
+        }
+      } else {
+        noEvents.style.display = 'none';
+        
+        // 공휴일이면 리스트 최상단에 하나 보여주기
+        if (holiday) {
+          const holidayInfo = document.createElement('div');
+          holidayInfo.style.marginBottom = '10px';
+          holidayInfo.style.fontSize = '14px';
+          holidayInfo.style.color = '#EF4444';
+          holidayInfo.style.fontWeight = 'bold';
+          holidayInfo.textContent = `🎉 오늘은 ${holiday} 입니다!`;
+          eventList.appendChild(holidayInfo);
+        }
+        
+        dayEvents.forEach(e => {
+          const m = members[e.memberId];
+          const card = document.createElement('div');
+          card.className = 'event-card';
+          card.innerHTML = `
+            <div class="avatar" style="background-color: ${m.color}">${m.name[0]}</div>
+            <div class="event-info">
+              <div class="event-title">${e.title}</div>
+              <div class="event-member">${m.name}</div>
+            </div>
+            <button class="delete-btn" onclick="deleteEvent(${e.id})">×</button>
+          `;
+          eventList.appendChild(card);
+        });
+      }
+    }
+
+    window.deleteEvent = function(id) {
+      events = events.filter(e => e.id !== id);
+      renderCalendar();
+      renderEvents();
+    }
+
+    document.getElementById('prevBtn').onclick = () => {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+      renderCalendar();
+    };
+    document.getElementById('nextBtn').onclick = () => {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      renderCalendar();
+    };
+
+    // Modal Logic
+    const modal = document.getElementById('modalOverlay');
+    document.getElementById('fabBtn').onclick = () => {
+      const holidayStr = getHolidayName(selectedDate) ? ` (${getHolidayName(selectedDate)})` : '';
+      document.getElementById('modalTitle').textContent = `${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일${holidayStr} 일정 추가`;
+      document.getElementById('eventTitleInput').value = '';
+      modal.style.display = 'flex';
+      setTimeout(() => document.getElementById('eventTitleInput').focus(), 100);
+    };
+    document.getElementById('cancelBtn').onclick = () => {
+      modal.style.display = 'none';
+    };
+    document.getElementById('saveBtn').onclick = () => {
+      const title = document.getElementById('eventTitleInput').value;
+      const memberId = document.getElementById('eventMemberInput').value;
+      if (title.trim() === '') return alert('일정 제목을 입력하세요.');
+      
+      events.push({
+        id: Date.now(),
+        dateString: formatDateString(selectedDate),
+        title,
+        memberId
+      });
+      
+      modal.style.display = 'none';
+      renderCalendar();
+      renderEvents();
+    };
+
+    // Initial render
+    renderCalendar();
+    renderEvents();
+  </script>
+</body>
+</html>
