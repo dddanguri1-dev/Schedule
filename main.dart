@@ -66,6 +66,38 @@ String? getHolidayName(DateTime date) {
   return holidays[yyyymmdd] ?? holidays[mmdd];
 }
 
+String? getLunarSpecialDayName(DateTime date) {
+  final lunar = KoreanLunarCalendar();
+  lunar.setSolarDate(date.year, date.month, date.day);
+  final lunarMmDd = '${lunar.lunarMonth.toString().padLeft(2, '0')}-${lunar.lunarDay.toString().padLeft(2, '0')}';
+  
+  const Map<String, String> lunarSpecialDays = {
+    '01-15': '정월대보름',
+    '03-03': '삼짇날',
+    '05-05': '단오',
+    '06-15': '유두절',
+    '07-07': '칠석',
+    '09-09': '중양절',
+  };
+  return lunarSpecialDays[lunarMmDd];
+}
+
+String? getSolarSpecialDayName(DateTime date) {
+  final mmdd = DateFormat('MM-dd').format(date);
+  const Map<String, String> solarSpecialDays = {
+    '04-05': '식목일',
+    '05-01': '근로자의 날',
+    '05-08': '어버이날',
+    '05-15': '스승의 날',
+    '10-01': '국군의 날',
+  };
+  return solarSpecialDays[mmdd];
+}
+
+String? getDayLabel(DateTime date) {
+  return getHolidayName(date) ?? getLunarSpecialDayName(date) ?? getSolarSpecialDayName(date);
+}
+
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({Key? key}) : super(key: key);
 
@@ -119,7 +151,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           final allEvents = snapshot.data?.docs ?? [];
           final selectedDateTarget = _selectedDay ?? _focusedDay;
           final selectedDayEvents = _getEventsForDay(allEvents, selectedDateTarget);
-          final String? selectedHoliday = getHolidayName(selectedDateTarget);
+          final String? selectedHoliday = getDayLabel(selectedDateTarget);
 
           return Column(
             children: [
@@ -160,7 +192,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 },
                 calendarBuilders: CalendarBuilders(
                   markerBuilder: (context, date, events) {
-                    final holiday = getHolidayName(date);
+                    final holiday = getDayLabel(date);
                     
                     // 음력 계산
                     final lunar = KoreanLunarCalendar();
@@ -197,7 +229,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                       holiday,
                                       style: TextStyle(
                                         fontSize: 8, 
-                                        color: isSameDay(date, _selectedDay) ? Colors.red[200] : Colors.red,
+                                        color: getHolidayName(date) != null 
+                                            ? (isSameDay(date, _selectedDay) ? Colors.red[200] : Colors.red)
+                                            : (isSameDay(date, _selectedDay) ? Colors.blue[300] : Colors.blueGrey),
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -238,7 +272,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ? '🎉 오늘은 $selectedHoliday 입니다!\n등록된 일정이 없습니다.' 
                           : '선택한 날짜에 일정이 없습니다.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: selectedHoliday != null ? Colors.red : null),
+                        style: TextStyle(color: selectedHoliday != null 
+                            ? (getHolidayName(selectedDateTarget) != null ? Colors.red : Colors.blueGrey)
+                            : null),
                       ),
                     )
                   : ListView.builder(
@@ -313,7 +349,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: Text('${DateFormat('MM월 dd일').format(date)}${getHolidayName(date) != null ? ' (${getHolidayName(date)})' : ''} 일정 등록'),
+              title: Text('${DateFormat('MM월 dd일').format(date)}${getDayLabel(date) != null ? ' (${getDayLabel(date)})' : ''} 일정 등록'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

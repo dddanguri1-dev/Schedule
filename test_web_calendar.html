@@ -169,6 +169,34 @@
       return holidays[yyyymmdd] || holidays[mmdd] || null;
     }
 
+    const lunarSpecialDays = {
+      '01-15': '정월대보름', '03-03': '삼짇날', '05-05': '단오',
+      '06-15': '유두절', '07-07': '칠석', '09-09': '중양절'
+    };
+
+    const solarSpecialDays = {
+      '04-05': '식목일', '05-01': '근로자의 날', '05-08': '어버이날',
+      '05-15': '스승의 날', '10-01': '국군의 날'
+    };
+
+    function getLunarSpecialDayName(date) {
+      try {
+        const lunarDate = Lunar.fromDate(date);
+        const lm = String(lunarDate.getMonth()).padStart(2, '0');
+        const ld = String(lunarDate.getDay()).padStart(2, '0');
+        return lunarSpecialDays[`${lm}-${ld}`] || null;
+      } catch(e) { return null; }
+    }
+
+    function getSolarSpecialDayName(date) {
+      const mmdd = String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+      return solarSpecialDays[mmdd] || null;
+    }
+
+    function getDayLabel(date) {
+       return getHolidayName(date) || getLunarSpecialDayName(date) || getSolarSpecialDayName(date);
+    }
+
     let events = [
       { id: Date.now()-2000, dateString: formatDateString(new Date()), title: '저녁 외식', memberId: 'dad' }
     ]; 
@@ -210,6 +238,7 @@
         }
 
         const holiday = getHolidayName(currentDateObj);
+        const dayLabel = getDayLabel(currentDateObj);
         const isSunday = currentDateObj.getDay() === 0;
         
         // 음력 계산
@@ -237,11 +266,11 @@
         }
         dayDiv.appendChild(dateNumSpan);
         
-        if (holiday) {
+        if (dayLabel) {
           const holidaySpan = document.createElement('span');
-          holidaySpan.textContent = holiday;
+          holidaySpan.textContent = dayLabel;
           holidaySpan.style.fontSize = '8px';
-          holidaySpan.style.color = dayDiv.classList.contains('selected') ? '#FECACA' : '#EF4444';
+          holidaySpan.style.color = holiday ? (dayDiv.classList.contains('selected') ? '#FECACA' : '#EF4444') : (dayDiv.classList.contains('selected') ? '#93C5FD' : '#6B7280');
           holidaySpan.style.marginTop = '-2px';
           // 공휴일 이름이 너무 길면 줄임
           holidaySpan.style.whiteSpace = 'nowrap';
@@ -286,25 +315,27 @@
       const dayEvents = events.filter(e => e.dateString === selectedDateStr);
 
       const holiday = getHolidayName(selectedDate);
+      const dayLabel = getDayLabel(selectedDate);
       
       if (dayEvents.length === 0) {
         noEvents.style.display = 'block';
-        if (holiday) {
-          noEvents.innerHTML = `이 날은 <b><span style="color:#EF4444">${holiday}</span></b> 입니다.<br>등록된 일정이 없습니다.`;
+        if (dayLabel) {
+          const color = holiday ? '#EF4444' : '#6B7280';
+          noEvents.innerHTML = `오늘은 <b><span style="color:${color}">${dayLabel}</span></b> 입니다.<br>등록된 일정이 없습니다.`;
         } else {
           noEvents.textContent = '일정이 없습니다.';
         }
       } else {
         noEvents.style.display = 'none';
         
-        // 공휴일이면 리스트 최상단에 하나 보여주기
-        if (holiday) {
+        // 공휴일/기념일이면 리스트 최상단에 하나 보여주기
+        if (dayLabel) {
           const holidayInfo = document.createElement('div');
           holidayInfo.style.marginBottom = '10px';
           holidayInfo.style.fontSize = '14px';
-          holidayInfo.style.color = '#EF4444';
+          holidayInfo.style.color = holiday ? '#EF4444' : '#6B7280';
           holidayInfo.style.fontWeight = 'bold';
-          holidayInfo.textContent = `🎉 오늘은 ${holiday} 입니다!`;
+          holidayInfo.textContent = `🎉 오늘은 ${dayLabel} 입니다!`;
           eventList.appendChild(holidayInfo);
         }
         
@@ -343,7 +374,8 @@
     // Modal Logic
     const modal = document.getElementById('modalOverlay');
     document.getElementById('fabBtn').onclick = () => {
-      const holidayStr = getHolidayName(selectedDate) ? ` (${getHolidayName(selectedDate)})` : '';
+      const dayLabel = getDayLabel(selectedDate);
+      const holidayStr = dayLabel ? ` (${dayLabel})` : '';
       document.getElementById('modalTitle').textContent = `${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일${holidayStr} 일정 추가`;
       document.getElementById('eventTitleInput').value = '';
       modal.style.display = 'flex';
